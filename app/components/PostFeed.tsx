@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useRouter } from 'next/navigation'
 import Comments from './Comments'
 
 interface Post {
@@ -19,9 +20,11 @@ interface Post {
 }
 
 export default function PostFeed({ refresh }: { refresh: number }) {
+  const router = useRouter()
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [followingIds, setFollowingIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     fetchPosts()
@@ -31,6 +34,26 @@ export default function PostFeed({ refresh }: { refresh: number }) {
   const getCurrentUser = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     setCurrentUserId(user?.id || null)
+    
+    if (user) {
+      fetchFollowing(user.id)
+    }
+  }
+
+  const fetchFollowing = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('follows')
+        .select('following_id')
+        .eq('follower_id', userId)
+
+      if (error) throw error
+      
+      const ids = new Set(data?.map(f => f.following_id) || [])
+      setFollowingIds(ids)
+    } catch (error: any) {
+      console.error('Error fetching following:', error.message)
+    }
   }
 
   const fetchPosts = async () => {
@@ -51,6 +74,36 @@ export default function PostFeed({ refresh }: { refresh: number }) {
       console.error('Error fetching posts:', error.message)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleFollow = async (userId: string) => {
+    if (!currentUserId || currentUserId === userId) return
+
+    try {
+      const isFollowing = followingIds.has(userId)
+
+      if (isFollowing) {
+        await supabase
+          .from('follows')
+          .delete()
+          .eq('follower_id', currentUserId)
+          .eq('following_id', userId)
+
+        setFollowingIds(prev => {
+          const newSet = new Set(prev)
+          newSet.delete(userId)
+          return newSet
+        })
+      } else {
+        await supabase
+          .from('follows')
+          .insert([{ follower_id: currentUserId, following_id: userId }])
+
+        setFollowingIds(prev => new Set(prev).add(userId))
+      }
+    } catch (error: any) {
+      console.error('Error toggling follow:', error.message)
     }
   }
 
@@ -85,56 +138,83 @@ export default function PostFeed({ refresh }: { refresh: number }) {
 
   if (posts.length === 0) {
     return (
-      <div className="bg-white rounded-lg shadow p-8 text-center">
+      <div className="bg-white rounded-lg shadow p-6 sm:p-8 text-center">
         <p className="text-gray-500">No posts yet. Be the first to share!</p>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {posts.map((post) => {
         const likeCount = post.likes.length
         const hasLiked = post.likes.some(like => like.user_id === currentUserId)
         const commentCount = post.comments.length
+        const isOwnPost = post.user_id === currentUserId
+        const isFollowing = followingIds.has(post.user_id)
 
         return (
-          <div key={post.id} className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center mb-4">
-              <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold">
-                {post.profiles?.username?.[0]?.toUpperCase() || 'U'}
+          <div key={post.id} className="bg-white rounded-lg shadow p-4 sm:p-6">
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
+              <div className="flex items-center min-w-0 flex-1">
+                <button
+                  onClick={() => router.push(`/profile/${post.profiles?.username}`)}
+                  className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold hover:bg-blue-700 flex-shrink-0"
+                >
+                  {post.profiles?.username?.[0]?.toUpperCase() || 'U'}
+                </button>
+                <div className="ml-2 sm:ml-3 min-w-0 flex-1">
+                  <button
+                    onClick={() => router.push(`/profile/${post.profiles?.username}`)}
+                    className="font-semibold hover:underline text-sm sm:text-base truncate block"
+                  >
+                    {post.profiles?.display_name || 'Unknown User'}
+                  </button>
+                  <p className="text-xs sm:text-sm text-gray-500">
+                    {new Date(post.created_at).toLocaleDateString()}
+                  </p>
+                </div>
               </div>
-              <div className="ml-3">
-                <p className="font-semibold">{post.profiles?.display_name || 'Unknown User'}</p>
-                <p className="text-sm text-gray-500">
-                  {new Date(post.created_at).toLocaleDateString()}
-                </p>
-              </div>
+
+              {!isOwnPost && (
+                <button
+                  onClick={() => handleFollow(post.user_id)}
+                  className={`px-3 sm:px-4 py-1 rounded-full text-xs sm:text-sm font-medium flex-shrink-0 ml-2 ${
+                    isFollowing
+                      ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                  }`}
+                >
+                  {isFollowing ? 'Following' : 'Follow'}
+                </button>
+              )}
             </div>
 
-            <p className="text-gray-800 mb-4 whitespace-pre-wrap">{post.content}</p>
+            <p className="text-sm sm:text-base text-gray-800 mb-3 sm:mb-4 whitespace-pre-wrap break-words">
+              {post.content}
+            </p>
 
             {post.image_url && (
               <img
                 src={post.image_url}
                 alt="Post image"
-                className="w-full rounded-lg mb-4 max-h-96 object-cover"
+                className="w-full rounded-lg mb-3 sm:mb-4 max-h-96 object-cover"
               />
             )}
 
-            <div className="flex items-center gap-6 pt-4 border-t border-gray-100">
+            <div className="flex items-center gap-4 sm:gap-6 pt-3 sm:pt-4 border-t border-gray-100">
               <button
                 onClick={() => handleLike(post.id)}
-                className={`flex items-center gap-2 ${
+                className={`flex items-center gap-1.5 sm:gap-2 ${
                   hasLiked ? 'text-blue-600' : 'text-gray-600'
                 } hover:text-blue-600`}
               >
-                <span className="text-xl">{hasLiked ? '❤️' : '🤍'}</span>
-                <span className="text-sm font-medium">{likeCount}</span>
+                <span className="text-lg sm:text-xl">{hasLiked ? '❤️' : '🤍'}</span>
+                <span className="text-xs sm:text-sm font-medium">{likeCount}</span>
               </button>
 
               <button
-                className="flex items-center gap-2 text-gray-600 hover:text-blue-600"
+                className="flex items-center gap-1.5 sm:gap-2 text-gray-600 hover:text-blue-600"
                 onClick={() => {
                   const commentSection = document.getElementById(`comments-${post.id}`)
                   if (commentSection) {
@@ -142,8 +222,8 @@ export default function PostFeed({ refresh }: { refresh: number }) {
                   }
                 }}
               >
-                <span className="text-xl">💬</span>
-                <span className="text-sm font-medium">{commentCount}</span>
+                <span className="text-lg sm:text-xl">💬</span>
+                <span className="text-xs sm:text-sm font-medium">{commentCount}</span>
               </button>
             </div>
 
