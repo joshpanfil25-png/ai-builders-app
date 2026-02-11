@@ -10,20 +10,36 @@ export default function AuthPage() {
   const [username, setUsername] = useState('')
   const [isSignUp, setIsSignUp] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [message, setMessage] = useState('')
+  const [error, setError] = useState('')
   const router = useRouter()
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    setMessage('')
+    setError('')
 
     try {
       if (isSignUp) {
+        // Check if username already exists
+        const { data: existingUser } = await supabase
+          .from('profiles')
+          .select('username')
+          .eq('username', username)
+          .single()
+
+        if (existingUser) {
+          setError('Username already taken')
+          setLoading(false)
+          return
+        }
+
         // Sign up
         const { data: authData, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
+          }
         })
 
         if (signUpError) throw signUpError
@@ -35,14 +51,15 @@ export default function AuthPage() {
             .insert([
               {
                 id: authData.user.id,
-                username: username,
+                username: username.toLowerCase().trim(),
                 display_name: username,
               },
             ])
 
           if (profileError) throw profileError
 
-          setMessage('Account created! Please check your email to verify.')
+          // Auto sign in after signup
+          router.push('/')
         }
       } else {
         // Sign in
@@ -56,89 +73,140 @@ export default function AuthPage() {
         router.push('/')
       }
     } catch (error: any) {
-      setMessage(error.message)
+      setError(error.message || 'An error occurred')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="max-w-md w-full space-y-8 p-8 bg-white rounded-lg shadow">
+    <div className="min-h-screen flex bg-gray-50">
+      {/* Left side - Branding */}
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 to-blue-800 p-12 flex-col justify-between">
         <div>
-          <h2 className="text-center text-3xl font-bold">
-            {isSignUp ? 'Create Account' : 'Sign In'}
-          </h2>
+          <h1 className="text-4xl font-bold text-white mb-4">AI Builders</h1>
+          <p className="text-blue-100 text-lg">The social network for AI creators and builders</p>
         </div>
         
-        <form className="mt-8 space-y-6" onSubmit={handleAuth}>
-          {isSignUp && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Username
-              </label>
-              <input
-                type="text"
-                required
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-          )}
+        <div className="space-y-8">
+          <div>
+            <h3 className="text-white font-semibold text-xl mb-2">📸 Share Your Progress</h3>
+            <p className="text-blue-100">Post screenshots, demos, and updates on your AI projects</p>
+          </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Email
-            </label>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-            />
+            <h3 className="text-white font-semibold text-xl mb-2">🤝 Connect With Builders</h3>
+            <p className="text-blue-100">Follow other AI creators, learn from their workflows, and collaborate</p>
           </div>
-
+          
           <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Password
-            </label>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-            />
+            <h3 className="text-white font-semibold text-xl mb-2">💡 Learn & Grow</h3>
+            <p className="text-blue-100">Discover new AI tools, agents, and techniques from the community</p>
+          </div>
+        </div>
+
+        <p className="text-blue-200 text-sm">
+          Join the community of builders pushing the boundaries of what's possible with AI
+        </p>
+      </div>
+
+      {/* Right side - Auth form */}
+      <div className="flex-1 flex items-center justify-center p-8">
+        <div className="w-full max-w-md">
+          {/* Mobile branding */}
+          <div className="lg:hidden mb-8 text-center">
+            <h1 className="text-3xl font-bold text-blue-600 mb-2">AI Builders</h1>
+            <p className="text-gray-600">Share, connect, and learn with AI creators</p>
           </div>
 
-          {message && (
-            <div className="text-sm text-center text-red-600">
-              {message}
+          <div className="bg-white rounded-xl shadow-lg p-8">
+            <h2 className="text-2xl font-bold text-center mb-6">
+              {isSignUp ? 'Create Your Account' : 'Welcome Back'}
+            </h2>
+            
+            <form onSubmit={handleAuth} className="space-y-4">
+              {isSignUp && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Username
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="johndoe"
+                  />
+                </div>
+              )}
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="you@example.com"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Password
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="••••••••"
+                  minLength={6}
+                />
+              </div>
+
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                  {error}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3 px-4 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {loading ? 'Loading...' : isSignUp ? 'Create Account' : 'Sign In'}
+              </button>
+            </form>
+
+            <div className="mt-6 text-center">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSignUp(!isSignUp)
+                  setError('')
+                }}
+                className="text-blue-600 hover:text-blue-700 font-medium text-sm"
+              >
+                {isSignUp
+                  ? 'Already have an account? Sign in'
+                  : "Don't have an account? Sign up"}
+              </button>
             </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-          >
-            {loading ? 'Loading...' : isSignUp ? 'Sign Up' : 'Sign In'}
-          </button>
-
-          <div className="text-center">
-            <button
-              type="button"
-              onClick={() => setIsSignUp(!isSignUp)}
-              className="text-sm text-blue-600 hover:text-blue-500"
-            >
-              {isSignUp
-                ? 'Already have an account? Sign in'
-                : "Don't have an account? Sign up"}
-            </button>
           </div>
-        </form>
+
+          {isSignUp && (
+            <p className="mt-4 text-center text-xs text-gray-500">
+              By signing up, you agree to share your AI projects and connect with other builders
+            </p>
+          )}
+        </div>
       </div>
     </div>
   )

@@ -46,7 +46,6 @@ export default function ProfilePage() {
 
   const fetchProfile = async () => {
     try {
-      // Get profile
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
@@ -56,7 +55,6 @@ export default function ProfilePage() {
       if (profileError) throw profileError
       setProfile(profileData)
 
-      // Get posts
       const { data: postsData, error: postsError } = await supabase
         .from('posts')
         .select(`
@@ -70,7 +68,6 @@ export default function ProfilePage() {
       if (postsError) throw postsError
       setPosts(postsData || [])
 
-      // Get follower count
       const { count: followers } = await supabase
         .from('follows')
         .select('*', { count: 'exact', head: true })
@@ -78,7 +75,6 @@ export default function ProfilePage() {
 
       setFollowerCount(followers || 0)
 
-      // Get following count
       const { count: following } = await supabase
         .from('follows')
         .select('*', { count: 'exact', head: true })
@@ -86,7 +82,6 @@ export default function ProfilePage() {
 
       setFollowingCount(following || 0)
 
-      // Check if current user follows this profile
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         const { data: followData } = await supabase
@@ -176,7 +171,6 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Navigation */}
       <nav className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
           <button
@@ -188,7 +182,6 @@ export default function ProfilePage() {
         </div>
       </nav>
 
-      {/* Profile Header */}
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="bg-white rounded-lg shadow p-8 mb-6">
           <div className="flex items-start justify-between">
@@ -219,22 +212,40 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {!isOwnProfile && currentUserId && (
-              <button
-                onClick={handleFollow}
-                className={`px-6 py-2 rounded-full font-medium ${
-                  isFollowing
-                    ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
-                }`}
-              >
-                {isFollowing ? 'Following' : 'Follow'}
-              </button>
+            {currentUserId && (
+              <div className="flex gap-2">
+                {isOwnProfile ? (
+                  <button
+                    onClick={() => router.push(`/profile/${username}/edit`)}
+                    className="px-6 py-2 rounded-full font-medium bg-gray-200 text-gray-700 hover:bg-gray-300"
+                  >
+                    Edit Profile
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => router.push(`/messages/${username}`)}
+                      className="px-6 py-2 rounded-full font-medium bg-gray-200 text-gray-700 hover:bg-gray-300"
+                    >
+                      Message
+                    </button>
+                    <button
+                      onClick={handleFollow}
+                      className={`px-6 py-2 rounded-full font-medium ${
+                        isFollowing
+                          ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                          : 'bg-blue-600 text-white hover:bg-blue-700'
+                      }`}
+                    >
+                      {isFollowing ? 'Following' : 'Follow'}
+                    </button>
+                  </>
+                )}
+              </div>
             )}
           </div>
         </div>
 
-        {/* Posts */}
         <div className="space-y-6">
           {posts.length === 0 ? (
             <div className="bg-white rounded-lg shadow p-8 text-center">

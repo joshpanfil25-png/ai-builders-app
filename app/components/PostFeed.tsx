@@ -19,7 +19,7 @@ interface Post {
   comments: { id: string }[]
 }
 
-export default function PostFeed({ refresh }: { refresh: number }) {
+export default function PostFeed({ refresh, filter }: { refresh: number; filter: 'all' | 'following' }) {
   const router = useRouter()
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
@@ -29,7 +29,7 @@ export default function PostFeed({ refresh }: { refresh: number }) {
   useEffect(() => {
     fetchPosts()
     getCurrentUser()
-  }, [refresh])
+  }, [refresh, filter])
 
   const getCurrentUser = async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -57,8 +57,9 @@ export default function PostFeed({ refresh }: { refresh: number }) {
   }
 
   const fetchPosts = async () => {
+    setLoading(true)
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('posts')
         .select(`
           *,
@@ -66,7 +67,12 @@ export default function PostFeed({ refresh }: { refresh: number }) {
           likes (user_id),
           comments (id)
         `)
-        .order('created_at', { ascending: false })
+
+      if (filter === 'following' && followingIds.size > 0) {
+        query = query.in('user_id', Array.from(followingIds))
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false })
 
       if (error) throw error
       setPosts(data || [])
@@ -74,6 +80,23 @@ export default function PostFeed({ refresh }: { refresh: number }) {
       console.error('Error fetching posts:', error.message)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleDelete = async (postId: string) => {
+    if (!confirm('Are you sure you want to delete this post?')) return
+
+    try {
+      const { error } = await supabase
+        .from('posts')
+        .delete()
+        .eq('id', postId)
+
+      if (error) throw error
+
+      fetchPosts()
+    } catch (error: any) {
+      alert('Error deleting post: ' + error.message)
     }
   }
 
@@ -102,6 +125,8 @@ export default function PostFeed({ refresh }: { refresh: number }) {
 
         setFollowingIds(prev => new Set(prev).add(userId))
       }
+
+      fetchPosts()
     } catch (error: any) {
       console.error('Error toggling follow:', error.message)
     }
@@ -139,7 +164,11 @@ export default function PostFeed({ refresh }: { refresh: number }) {
   if (posts.length === 0) {
     return (
       <div className="bg-white rounded-lg shadow p-6 sm:p-8 text-center">
-        <p className="text-gray-500">No posts yet. Be the first to share!</p>
+        <p className="text-gray-500">
+          {filter === 'following' 
+            ? 'No posts from people you follow yet. Follow some users to see their posts here!'
+            : 'No posts yet. Be the first to share!'}
+        </p>
       </div>
     )
   }
@@ -176,18 +205,29 @@ export default function PostFeed({ refresh }: { refresh: number }) {
                 </div>
               </div>
 
-              {!isOwnPost && (
-                <button
-                  onClick={() => handleFollow(post.user_id)}
-                  className={`px-3 sm:px-4 py-1 rounded-full text-xs sm:text-sm font-medium flex-shrink-0 ml-2 ${
-                    isFollowing
-                      ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                      : 'bg-blue-600 text-white hover:bg-blue-700'
-                  }`}
-                >
-                  {isFollowing ? 'Following' : 'Follow'}
-                </button>
-              )}
+              <div className="flex items-center gap-2">
+                {!isOwnPost && (
+                  <button
+                    onClick={() => handleFollow(post.user_id)}
+                    className={`px-3 sm:px-4 py-1 rounded-full text-xs sm:text-sm font-medium flex-shrink-0 ${
+                      isFollowing
+                        ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        : 'bg-blue-600 text-white hover:bg-blue-700'
+                    }`}
+                  >
+                    {isFollowing ? 'Following' : 'Follow'}
+                  </button>
+                )}
+
+                {isOwnPost && (
+                  <button
+                    onClick={() => handleDelete(post.id)}
+                    className="text-red-600 hover:text-red-700 text-sm font-medium"
+                  >
+                    Delete
+                  </button>
+                )}
+              </div>
             </div>
 
             <p className="text-sm sm:text-base text-gray-800 mb-3 sm:mb-4 whitespace-pre-wrap break-words">
