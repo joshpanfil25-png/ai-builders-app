@@ -11,16 +11,17 @@ export default function AuthPage() {
   const [isSignUp, setIsSignUp] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
   const router = useRouter()
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError('')
+    setSuccess('')
 
     try {
       if (isSignUp) {
-        // Check if username already exists
         const { data: existingUser } = await supabase
           .from('profiles')
           .select('username')
@@ -33,7 +34,6 @@ export default function AuthPage() {
           return
         }
 
-        // Sign up
         const { data: authData, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
@@ -45,7 +45,6 @@ export default function AuthPage() {
         if (signUpError) throw signUpError
 
         if (authData.user) {
-          // Create profile
           const { error: profileError } = await supabase
             .from('profiles')
             .insert([
@@ -58,11 +57,13 @@ export default function AuthPage() {
 
           if (profileError) throw profileError
 
-          // Auto sign in after signup
-          router.push('/')
+          setSuccess('Account created! Time to learn 🚀')
+          
+          setTimeout(() => {
+            router.push('/')
+          }, 1500)
         }
       } else {
-        // Sign in
         const { error } = await supabase.auth.signInWithPassword({
           email,
           password,
@@ -81,7 +82,6 @@ export default function AuthPage() {
 
   return (
     <div className="min-h-screen flex bg-gray-50">
-      {/* Left side - Branding */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 to-blue-800 p-12 flex-col justify-between">
         <div>
           <h1 className="text-4xl font-bold text-white mb-4">AI Builders</h1>
@@ -110,10 +110,8 @@ export default function AuthPage() {
         </p>
       </div>
 
-      {/* Right side - Auth form */}
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="w-full max-w-md">
-          {/* Mobile branding */}
           <div className="lg:hidden mb-8 text-center">
             <h1 className="text-3xl font-bold text-blue-600 mb-2">AI Builders</h1>
             <p className="text-gray-600">Share, connect, and learn with AI creators</p>
@@ -176,6 +174,12 @@ export default function AuthPage() {
                 </div>
               )}
 
+              {success && (
+                <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm font-medium">
+                  {success}
+                </div>
+              )}
+
               <button
                 type="submit"
                 disabled={loading}
@@ -191,6 +195,7 @@ export default function AuthPage() {
                 onClick={() => {
                   setIsSignUp(!isSignUp)
                   setError('')
+                  setSuccess('')
                 }}
                 className="text-blue-600 hover:text-blue-700 font-medium text-sm"
               >
