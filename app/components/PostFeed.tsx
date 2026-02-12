@@ -94,7 +94,7 @@ export default function PostFeed({ refresh, filter }: { refresh: number; filter:
 
       if (error) throw error
 
-      fetchPosts()
+      setPosts(posts.filter(p => p.id !== postId))
     } catch (error: any) {
       alert('Error deleting post: ' + error.message)
     }
@@ -135,26 +135,42 @@ export default function PostFeed({ refresh, filter }: { refresh: number; filter:
   const handleLike = async (postId: string) => {
     if (!currentUserId) return
 
-    try {
-      const post = posts.find(p => p.id === postId)
-      const hasLiked = post?.likes.some(like => like.user_id === currentUserId)
+    const post = posts.find(p => p.id === postId)
+    const hasLiked = post?.likes.some(like => like.user_id === currentUserId)
 
-      if (hasLiked) {
-        await supabase
-          .from('likes')
-          .delete()
-          .eq('post_id', postId)
-          .eq('user_id', currentUserId)
-      } else {
-        await supabase
-          .from('likes')
-          .insert([{ post_id: postId, user_id: currentUserId }])
-      }
+    if (hasLiked) {
+      setPosts(posts.map(p => 
+        p.id === postId 
+          ? { ...p, likes: p.likes.filter(like => like.user_id !== currentUserId) }
+          : p
+      ))
 
-      fetchPosts()
-    } catch (error: any) {
-      console.error('Error toggling like:', error.message)
+      supabase
+        .from('likes')
+        .delete()
+        .eq('post_id', postId)
+        .eq('user_id', currentUserId)
+        .then()
+    } else {
+      setPosts(posts.map(p => 
+        p.id === postId 
+          ? { ...p, likes: [...p.likes, { user_id: currentUserId }] }
+          : p
+      ))
+
+      supabase
+        .from('likes')
+        .insert([{ post_id: postId, user_id: currentUserId }])
+        .then()
     }
+  }
+
+  const handleCommentAdded = (postId: string) => {
+    setPosts(posts.map(p => 
+      p.id === postId 
+        ? { ...p, comments: [...p.comments, { id: `temp-${Date.now()}` }] }
+        : p
+    ))
   }
 
   if (loading) {
@@ -267,7 +283,7 @@ export default function PostFeed({ refresh, filter }: { refresh: number; filter:
               </button>
             </div>
 
-            <Comments postId={post.id} />
+            <Comments postId={post.id} onCommentAdded={() => handleCommentAdded(post.id)} />
           </div>
         )
       })}

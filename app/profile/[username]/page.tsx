@@ -175,16 +175,80 @@ export default function ProfilePage() {
         <div className="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
           <button
             onClick={() => router.push('/')}
-            className="text-2xl font-bold text-blue-600 hover:text-blue-700"
+            className="text-xl sm:text-2xl font-bold text-blue-600 hover:text-blue-700"
           >
             ← AI Builders
           </button>
         </div>
       </nav>
 
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        <div className="bg-white rounded-lg shadow p-8 mb-6">
-          <div className="flex items-start justify-between">
+      <div className="max-w-4xl mx-auto px-4 py-6 sm:py-8">
+        <div className="bg-white rounded-lg shadow p-4 sm:p-8 mb-6">
+          {/* Mobile Layout */}
+          <div className="flex flex-col sm:hidden">
+            <div className="flex items-start justify-between mb-4">
+              <div className="w-20 h-20 rounded-full bg-blue-600 flex items-center justify-center text-white text-3xl font-bold flex-shrink-0">
+                {profile.username[0].toUpperCase()}
+              </div>
+              
+              {currentUserId && (
+                <div className="flex gap-2">
+                  {isOwnProfile ? (
+                    <button
+                      onClick={() => router.push(`/profile/${username}/edit`)}
+                      className="px-4 py-2 rounded-full text-sm font-medium bg-gray-200 text-gray-700 hover:bg-gray-300"
+                    >
+                      Edit Profile
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => router.push(`/messages/${username}`)}
+                        className="px-4 py-2 rounded-full text-sm font-medium bg-gray-200 text-gray-700 hover:bg-gray-300"
+                      >
+                        Message
+                      </button>
+                      <button
+                        onClick={handleFollow}
+                        className={`px-4 py-2 rounded-full text-sm font-medium ${
+                          isFollowing
+                            ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                            : 'bg-blue-600 text-white hover:bg-blue-700'
+                        }`}
+                      >
+                        {isFollowing ? 'Following' : 'Follow'}
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <h1 className="text-2xl font-bold">{profile.display_name}</h1>
+              <p className="text-gray-600 mb-3">@{profile.username}</p>
+              {profile.bio && (
+                <p className="text-gray-700 mb-4">{profile.bio}</p>
+              )}
+              <div className="flex gap-4 text-sm">
+                <div>
+                  <span className="font-bold">{followerCount}</span>{' '}
+                  <span className="text-gray-600">Followers</span>
+                </div>
+                <div>
+                  <span className="font-bold">{followingCount}</span>{' '}
+                  <span className="text-gray-600">Following</span>
+                </div>
+                <div>
+                  <span className="font-bold">{posts.length}</span>{' '}
+                  <span className="text-gray-600">Posts</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Desktop Layout */}
+          <div className="hidden sm:flex items-start justify-between">
             <div className="flex items-center gap-6">
               <div className="w-24 h-24 rounded-full bg-blue-600 flex items-center justify-center text-white text-4xl font-bold">
                 {profile.username[0].toUpperCase()}

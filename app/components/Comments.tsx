@@ -14,17 +14,17 @@ interface Comment {
   }
 }
 
-export default function Comments({ postId }: { postId: string }) {
+export default function Comments({ postId, onCommentAdded }: { postId: string; onCommentAdded?: () => void }) {
   const [comments, setComments] = useState<Comment[]>([])
   const [newComment, setNewComment] = useState('')
+  const [isOpen, setIsOpen] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [showComments, setShowComments] = useState(false)
 
   useEffect(() => {
-    if (showComments) {
+    if (isOpen) {
       fetchComments()
     }
-  }, [showComments, postId])
+  }, [isOpen])
 
   const fetchComments = async () => {
     try {
@@ -72,6 +72,10 @@ export default function Comments({ postId }: { postId: string }) {
 
       setNewComment('')
       fetchComments()
+      
+      if (onCommentAdded) {
+        onCommentAdded()
+      }
     } catch (error: any) {
       alert('Error posting comment: ' + error.message)
     } finally {
@@ -83,36 +87,30 @@ export default function Comments({ postId }: { postId: string }) {
     <div className="mt-4">
       <button
         id={`comments-${postId}`}
-        onClick={() => setShowComments(!showComments)}
-        className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+        onClick={() => setIsOpen(!isOpen)}
+        className="text-sm text-gray-600 hover:text-blue-600 font-medium"
       >
-        {showComments ? 'Hide comments' : `View comments (${comments.length})`}
+        {isOpen ? 'Hide comments' : 'View comments'}
       </button>
 
-      {showComments && (
+      {isOpen && (
         <div className="mt-4 space-y-4">
-          {comments.length > 0 && (
-            <div className="space-y-3">
-              {comments.map((comment) => (
-                <div key={comment.id} className="flex gap-3">
-                  <div className="w-8 h-8 rounded-full bg-gray-400 flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
-                    {comment.profiles?.username?.[0]?.toUpperCase() || 'U'}
-                  </div>
-                  <div className="flex-1">
-                    <div className="bg-gray-100 rounded-lg px-4 py-2">
-                      <p className="font-semibold text-sm">
-                        {comment.profiles?.display_name || 'Unknown User'}
-                      </p>
-                      <p className="text-gray-800 text-sm mt-1">{comment.content}</p>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1 ml-4">
-                      {new Date(comment.created_at).toLocaleDateString()}
-                    </p>
-                  </div>
+          {comments.map((comment) => (
+            <div key={comment.id} className="flex gap-3">
+              <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
+                {comment.profiles?.username?.[0]?.toUpperCase() || 'U'}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="bg-gray-100 rounded-lg p-3">
+                  <p className="font-semibold text-sm">{comment.profiles?.display_name || 'Unknown User'}</p>
+                  <p className="text-sm text-gray-800 break-words">{comment.content}</p>
                 </div>
-              ))}
+                <p className="text-xs text-gray-500 mt-1">
+                  {new Date(comment.created_at).toLocaleDateString()}
+                </p>
+              </div>
             </div>
-          )}
+          ))}
 
           <form onSubmit={handleSubmit} className="flex gap-2">
             <input
@@ -125,9 +123,9 @@ export default function Comments({ postId }: { postId: string }) {
             <button
               type="submit"
               disabled={loading || !newComment.trim()}
-              className="px-6 py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+              className="px-4 py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 disabled:opacity-50 text-sm font-medium"
             >
-              {loading ? 'Posting...' : 'Post'}
+              Post
             </button>
           </form>
         </div>
